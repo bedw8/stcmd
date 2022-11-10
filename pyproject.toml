@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "stcmd"
+version = "0.1.0"
+description = ""
+authors = ["Benjamin <bedw@bedw.me>"]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.9.7 || >3.9.7,<4.0"
+streamlit = "^1.14.0"
+folium = "^0.13.0"
+geopandas = "^0.12.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
