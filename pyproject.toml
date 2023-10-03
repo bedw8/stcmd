@@ -10,6 +10,9 @@ streamlit = "^1.14.0"
 folium = "^0.13.0"
 geopandas = "^0.12.1"
 
+[tool.poetry.scripts]
+stcmd = "stcmd.cli.main:app"
+
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 
