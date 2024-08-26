@@ -6,10 +6,11 @@ import folium
 from folium.plugins import BeautifyIcon
 import shapely
 from pathlib import Path
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium, folium_static
 from pandas.api.types import is_string_dtype
 from dataclasses import dataclass, field
 from typing import Union, Literal, Dict
+import json
 
 @dataclass
 class Mapa():
@@ -43,7 +44,7 @@ class Mapa():
 
         return df
 
-    def create_filter(self,selector_name,type_=st.selectbox,check=True):
+    def create_filter(self,selector_name,type_=st.selectbox,opts=None,check=True,**kwargs):
         if isinstance(selector_name,str):
             selector_colname = self.filter_dict[selector_name]
         # if dict
@@ -54,7 +55,8 @@ class Mapa():
 
 
         # make st.selectbox a parameter
-        def filter_df(df): 
+        def filter_df(df,opts=opts,**kwargs):            
+            self.avoid_show = False
             column = df[selector_colname]
             isstr = pd.api.types.is_string_dtype(column)
 
@@ -62,8 +64,11 @@ class Mapa():
                 df[selector_colname] = df[selector_colname].str.upper()
                 column = df[selector_colname]
 
-            opts = pd.Series(column.unique()).sort_values(ignore_index=True)
-            subset = type_(selector_name,options=opts)
+            if not opts:
+                opts = pd.Series(column.unique()).sort_values(ignore_index=True).to_list()
+            
+            subset = type_(selector_name,options=opts,**kwargs)
+
             if isstr:
                 bool_series = column == subset
             else:
@@ -79,14 +84,18 @@ class Mapa():
         else:
             show = True
         if show:
-             filter_df(self.df)
+             filter_df(self.df,**kwargs)
+        
         return show
     
-    def _addPoints(_self,gdf,color='#49a561',popup=None,layer=None):
-        folGJ = folium.GeoJson(gdf.to_json(),
+    def _addPoints(_self,gdf,color='#49a561',popup=None,popupAlias=None,layer=None):
+        if len(gdf) == 0:
+            return
+        geojson = gdf.to_json()
+        folGJ = folium.GeoJson(geojson,
                                marker = folium.CircleMarker(fill=True),
                                style_function = lambda f: {"color": color, "fillColor": color},
-                               popup=folium.GeoJsonPopup(fields=popup,labels=True) if popup else None
+                               popup=folium.GeoJsonPopup(fields=popup,aliases=popupAlias,labels=True) if popup else None
                                )
         
         if layer:
@@ -112,7 +121,7 @@ class Mapa():
             point.add_to(destination)
 
      
-    def create_map(self,popup_fields=None, label=None):
+    def create_map(self,popup_fields=None, popupAlias=None, label=None,**kwargs):
         if self.avoid_show:
             st.write('No hay registros para el filtro selccionado')
             return
@@ -127,6 +136,7 @@ class Mapa():
                 geo_df['lon'] = geo_df.geometry.x
 
                 popup_fields += ['lat','lon']
+                popupAlias += ['lat', 'lon']
                 popup_fields.remove('geometry')
         
         bounds = geo_df.geometry.total_bounds
@@ -134,13 +144,12 @@ class Mapa():
         
         self.m = folium.Map(location=list(bbox_centroid.coords)[0][::-1])
 
-        
         if self.color:
             green = geo_df.query(self.color)
             red = geo_df[~geo_df.index.isin(green.index)]
             
-            self._addPoints(green,layer='CDF 110',popup=popup_fields)
-            self._addPoints(red,color='#FF0000',layer='Otros',popup=popup_fields)
+            self._addPoints(green,layer='CDF 110',popup=popup_fields,popupAlias=popupAlias)
+            self._addPoints(red,color='#FF0000',layer='Otros',popup=popup_fields,popupAlias=popupAlias)
             folium.LayerControl().add_to(self.m)
 
         else:
@@ -149,7 +158,5 @@ class Mapa():
 
 
         b = list(bounds)
-        self.m.fit_bounds([[b[1],b[0]],[b[3],b[2]]])
-        folium_static(self.m)
         
-
+        self.m.fit_bounds([[b[1],b[0]],[b[3],b[2]]])        
